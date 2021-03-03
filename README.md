@@ -12,3 +12,6 @@ F0 := phase_shift
 k is period multiplier, allows to make measurment every T/k, T - period of one disc rotation
 
 Condition to flash the light is phase_conv((tk + time_shift) / k) + phase_shift <= RPM_phase(RPM)
+
+https://doi.org/10.26434/chemrxiv.14054033 - supporting data
+
