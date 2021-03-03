@@ -1,0 +1,99 @@
+
+#define RPM 2700        // RPM of the spin-coater
+
+#define laser_pulse 10 
+#define in A1        // input from LDR in pin A1
+
+#define mikro 1000000   // conversion from mikroseconds to seconds
+#define k 1             // phase multiplier 
+#define skala_volty 1   // voltage scalling
+
+#define time_shift 1050 // shift of the time originated from the duration of shoot() and reflectometry()
+#define phase_shift 0.389 // shift of the phase to adjust the tilt and thickness of the sample
+
+
+float vv;               // LDR value
+float vv_base = 0;      // base value of LDR reading
+int c = 1; // c = 0     // counter
+float t = 0;            // time counter
+float ct;               // time baseline
+int ts = 1000;          // time scale
+
+unsigned long t0 = 1;   // time of laser shot
+unsigned long tk = 1;   // time at the end of shooting precedure
+
+
+
+float reflectometry(){                  //read LDR - base value
+  return analogRead(in) - vv_base;
+}
+
+void time_read (){                      // time counter
+  t = millis();
+}
+
+float volts(float vvs){                         // conversion of arduino scale to volts 
+    return 5 * (vvs / c) / 1023;                // LDR reading avaraged by the value of the counter 
+}
+
+void serial_print(){                            
+    Serial.print((t - ct)/ts,3);                    // print time to serial port 
+        Serial.print(";");
+        Serial.println(skala_volty * volts(vv),3);  // print to serial port the LDR reading in volts in set scale
+  }
+  
+
+
+float RPM_phase(int RPMs){                      // conversion of spincoater RPM to phase
+   return RPMs / 60;                            //  2700/60=45Hz
+}
+
+float phase_conv(float tks){ //                 // conversion of microcotroller time to phase     
+    if(tks > 0) {return mikro / tks;}           // condition to avoid /0
+    else{ return mikro / ( tks + 1 );}
+}
+
+void laser_mod(){                               // modulation of laser pulses
+    if(phase_conv((tk + time_shift) / k) + phase_shift <= RPM_phase(RPM)){     // condition for microcontroller phase = spincoater phase
+         shoot();                                                              // shoot laser pulse 
+         serial_print();                                                       // print time and LDR to serial port 
+         tk = 1;                                                               // reset tk
+    }  
+}
+
+void shoot(){                                   // laser shooting and LDR reading
+    t0 = micros();                              // start time counter
+    c = 0;                                      // reset counter
+    vv = 0;                                     // reset LDR reading
+      digitalWrite(laser_pulse,HIGH);           // laser diod on
+      do{                                       // start LDR procedure
+            c = c + 1;                          // start counter
+               vv = vv + reflectometry();       // get and ad 3 LDR values
+            delayMicroseconds(5);               // 5 microseconds delay between measurments
+        }while(c <= 3); 
+    digitalWrite(laser_pulse,LOW);              //laser off
+    
+}
+
+void setup() {
+
+  Serial.begin(115200);
+  lcd.begin(16,2);
+  delay(1000);
+  lcd.clear();
+  dht.setup(DHT13_PIN); 
+  pinMode(10, OUTPUT); 
+  ct = millis();
+  tk = mikro / (int)RPM_phase(RPM);
+  delay(250);
+  vv_base = reflectometry();
+  delay(250);
+  show();
+}
+
+void loop() {
+      time_read();
+        laser_mod();
+}
+
+
